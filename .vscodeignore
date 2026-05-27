@@ -4,3 +4,11 @@ src/
 scripts/
 tsconfig.json
 *.ts
+.env
+.npmrc
+.gitignore
+package.json.bak
+package-lock.json
+node_modules/
+*.vsix
+icon.png
