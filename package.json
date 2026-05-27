@@ -2,7 +2,7 @@
   "name": "@ritwik-spense/voice-input",
   "displayName": "Voice Input",
   "description": "Press Ctrl+Space to dictate text into your editor via STT",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "spense",
   "repository": {
     "type": "git",
@@ -14,8 +14,12 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other"],
-  "activationEvents": ["onCommand:voiceInput.toggle"],
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:voiceInput.toggle"
+  ],
   "main": "./out/extension.js",
   "scripts": {
     "vscode:prepublish": "npm run compile",
