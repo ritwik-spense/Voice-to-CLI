@@ -105,7 +105,7 @@ async function stopAndTranscribe() {
   const sttModel = config.get<string>("sttModel", "deepdml/faster-whisper-large-v3-turbo-ct2");
   const language = config.get<string>("language", "en");
   const translateToEnglish = config.get<boolean>("translateToEnglish", true);
-  const apiKey = config.get<string>("apiKey", "");
+  const apiKey = config.get<string>("apiKey", "") || "sk-c05446ce3a3efde3783b67f5725b73867763f7ad0c9f1737";
 
   if (!apiKey) {
     vscode.window.showErrorMessage(
