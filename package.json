@@ -1,0 +1,75 @@
+{
+  "name": "voice-input",
+  "displayName": "Voice Input",
+  "description": "Press Ctrl+Space to dictate text into your editor via STT",
+  "version": "0.1.0",
+  "publisher": "spense",
+  "icon": "spense-logo.png",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onCommand:voiceInput.toggle"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "voiceInput.toggle",
+        "title": "Voice Input: Toggle Recording"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "voiceInput.toggle",
+        "key": "ctrl+space",
+        "mac": "ctrl+space",
+        "when": "terminalFocus || editorTextFocus"
+      }
+    ],
+    "configuration": {
+      "title": "Voice Input",
+      "properties": {
+        "voiceInput.sttUrl": {
+          "type": "string",
+          "default": "http://localhost:9000/v1/audio/transcriptions",
+          "description": "STT server endpoint URL"
+        },
+        "voiceInput.sttModel": {
+          "type": "string",
+          "default": "deepdml/faster-whisper-large-v3-turbo-ct2",
+          "description": "STT model name"
+        },
+        "voiceInput.language": {
+          "type": "string",
+          "default": "en",
+          "description": "Language code for transcription (en, hi, kn, ta, or auto for detection)"
+        },
+        "voiceInput.translateToEnglish": {
+          "type": "boolean",
+          "default": true,
+          "description": "Translate non-English speech to English before inserting"
+        },
+        "voiceInput.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key for authentication (required). Get this from your team admin."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "mic": "^2.1.2",
+    "form-data": "^4.0.0"
+  }
+}
