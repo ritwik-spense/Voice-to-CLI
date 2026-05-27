@@ -16,8 +16,7 @@ Press **Ctrl+Space** to dictate text into your editor or terminal.
 
 **Windows (PowerShell):**
 ```powershell
-npm config set @ritwik-spense:registry https://npm.pkg.github.com
-npx @ritwik-spense/voice-input YOUR_API_KEY
+npm config set @ritwik-spense:registry https://npm.pkg.github.com; npx @ritwik-spense/voice-input YOUR_API_KEY
 ```
 
 **macOS / Ubuntu:**
