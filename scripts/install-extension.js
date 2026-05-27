@@ -7,8 +7,7 @@ const pkgDir = path.resolve(__dirname, "..");
 const vsixPath = path.join(pkgDir, "voice-input.vsix");
 
 if (!fs.existsSync(vsixPath)) {
-  console.error("❌ voice-input.vsix not found in package.");
-  process.exit(1);
+  process.exit(0); // skip during dev install
 }
 
 // Install into VS Code
@@ -16,8 +15,8 @@ console.log("Installing Voice Input extension...");
 try {
   execSync(`code --install-extension "${vsixPath}" --force`, { stdio: "inherit" });
 
-  // Set API key if provided
-  const apiKey = process.argv[2];
+  // Set API key from env
+  const apiKey = process.env.VOICE_INPUT_KEY;
   if (apiKey) {
     const settingsPath = process.platform === "win32"
       ? path.join(process.env.APPDATA, "Code", "User", "settings.json")
@@ -38,8 +37,8 @@ try {
     console.log("\n✅ Voice Input installed!");
   }
 
-  console.log("\nUsage: Press Ctrl+Space to start/stop voice recording.");
+  console.log("Usage: Press Ctrl+Space to start/stop voice recording.");
 } catch (e) {
-  console.error("\n❌ Failed to install. Make sure 'code' is in your PATH.");
+  console.error("❌ Failed. Make sure 'code' is in your PATH.");
   process.exit(1);
 }

@@ -16,12 +16,12 @@ Press **Ctrl+Space** to dictate text into your editor or terminal.
 
 **Windows (PowerShell):**
 ```powershell
-npm config set @ritwik-spense:registry https://npm.pkg.github.com; npx @ritwik-spense/voice-input YOUR_API_KEY
+$env:VOICE_INPUT_KEY="YOUR_API_KEY"; npm config set @ritwik-spense:registry https://npm.pkg.github.com; npm install -g @ritwik-spense/voice-input
 ```
 
 **macOS / Ubuntu:**
 ```bash
-npm config set @ritwik-spense:registry https://npm.pkg.github.com && npx @ritwik-spense/voice-input YOUR_API_KEY
+VOICE_INPUT_KEY=YOUR_API_KEY npm config set @ritwik-spense:registry https://npm.pkg.github.com && npm install -g @ritwik-spense/voice-input
 ```
 
 ---
