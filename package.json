@@ -1,17 +1,32 @@
 {
-  "name": "voice-input",
+  "name": "@ritwik-spense/voice-input",
   "displayName": "Voice Input",
   "description": "Press Ctrl+Space to dictate text into your editor via STT",
   "version": "0.1.0",
   "publisher": "spense",
-  "icon": "spense-logo.png",
-  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ritwik-spense/Voice-to-CLI.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": ["Other"],
   "activationEvents": ["onCommand:voiceInput.toggle"],
   "main": "./out/extension.js",
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "npx @vscode/vsce package --no-dependencies --allow-missing-repository",
+    "install-ext": "node scripts/install-extension.js"
+  },
+  "bin": {
+    "voice-input-install": "./scripts/install-extension.js"
+  },
   "contributes": {
     "commands": [
       {
@@ -32,7 +47,7 @@
       "properties": {
         "voiceInput.sttUrl": {
           "type": "string",
-          "default": "http://localhost:9000/v1/audio/transcriptions",
+          "default": "http://65.0.42.25:9000/v1/audio/transcriptions",
           "description": "STT server endpoint URL"
         },
         "voiceInput.sttModel": {
@@ -43,7 +58,7 @@
         "voiceInput.language": {
           "type": "string",
           "default": "en",
-          "description": "Language code for transcription (en, hi, kn, ta, or auto for detection)"
+          "description": "Language code for transcription (en, hi, kn, ta, or auto)"
         },
         "voiceInput.translateToEnglish": {
           "type": "boolean",
@@ -58,18 +73,12 @@
       }
     }
   },
-  "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
-  },
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.85.0",
     "typescript": "^5.3.3"
   },
   "dependencies": {
-    "mic": "^2.1.2",
     "form-data": "^4.0.0"
   }
 }

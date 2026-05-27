@@ -1,9 +1,6 @@
-.vscode/**
-src/**
-deploy/**
-node_modules/**
+.vscode/
+deploy/
+src/
+scripts/
 tsconfig.json
-.gitignore
-package-lock.json
-*.vsix
-icon.png
+*.ts

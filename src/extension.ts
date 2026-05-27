@@ -1,6 +1,5 @@
 import * as vscode from "vscode";
 import * as http from "http";
-import * as path from "path";
 import { spawn, ChildProcess } from "child_process";
 import FormData from "form-data";
 
@@ -26,6 +25,7 @@ export function deactivate() {
 function setIdle() {
   statusBar.text = "$(unmute) Voice";
   statusBar.tooltip = "Click or Ctrl+Space to start recording";
+  statusBar.backgroundColor = undefined;
 }
 
 function setRecording() {
@@ -47,7 +47,6 @@ function startRecording() {
   recording = true;
   setRecording();
 
-  // Use sox (rec) for cross-platform audio capture
   const isWin = process.platform === "win32";
   const cmd = isWin ? "sox" : "rec";
   const args = isWin
@@ -62,7 +61,9 @@ function startRecording() {
     });
 
     recProcess.on("error", (err) => {
-      vscode.window.showErrorMessage(`Voice Input: Failed to start recording. Ensure 'sox' is installed. ${err.message}`);
+      vscode.window.showErrorMessage(
+        `Voice Input: Failed to start recording. Ensure 'sox' is installed. ${err.message}`
+      );
       recording = false;
       setIdle();
     });
@@ -80,7 +81,6 @@ function startRecording() {
 function stopRecording(): Buffer {
   recording = false;
   setIdle();
-  statusBar.backgroundColor = undefined;
 
   if (recProcess) {
     recProcess.kill("SIGTERM");
@@ -108,7 +108,9 @@ async function stopAndTranscribe() {
   const apiKey = config.get<string>("apiKey", "");
 
   if (!apiKey) {
-    vscode.window.showErrorMessage("Voice Input: API key required. Set it in Settings → voiceInput.apiKey");
+    vscode.window.showErrorMessage(
+      "Voice Input: API key required. Set it in Settings → voiceInput.apiKey"
+    );
     setIdle();
     return;
   }
@@ -127,7 +129,14 @@ async function stopAndTranscribe() {
   }
 }
 
-function transcribe(wav: Buffer, url: string, model: string, language: string, apiKey: string, translate: boolean): Promise<string> {
+function transcribe(
+  wav: Buffer,
+  url: string,
+  model: string,
+  language: string,
+  apiKey: string,
+  translate: boolean
+): Promise<string> {
   return new Promise((resolve, reject) => {
     const form = new FormData();
     form.append("file", wav, { filename: "audio.wav", contentType: "audio/wav" });
@@ -138,16 +147,15 @@ function transcribe(wav: Buffer, url: string, model: string, language: string, a
     }
 
     const parsed = new URL(url);
-    const headers = {
-      ...form.getHeaders(),
-      "Authorization": `Bearer ${apiKey}`,
-    };
     const options: http.RequestOptions = {
       hostname: parsed.hostname,
       port: parsed.port,
       path: parsed.pathname,
       method: "POST",
-      headers,
+      headers: {
+        ...form.getHeaders(),
+        Authorization: `Bearer ${apiKey}`,
+      },
       timeout: 15000,
     };
 
@@ -170,7 +178,10 @@ function transcribe(wav: Buffer, url: string, model: string, language: string, a
     });
 
     req.on("error", (e) => reject(new Error(`STT server unreachable: ${e.message}`)));
-    req.on("timeout", () => { req.destroy(); reject(new Error("STT request timed out")); });
+    req.on("timeout", () => {
+      req.destroy();
+      reject(new Error("STT request timed out"));
+    });
 
     form.pipe(req);
   });
@@ -181,7 +192,6 @@ function insertText(text: string) {
   const editor = vscode.window.activeTextEditor;
 
   if (terminal && !editor?.document.uri.scheme) {
-    // Terminal is focused — send text without executing (no newline)
     terminal.sendText(text, false);
   } else if (editor) {
     editor.edit((editBuilder) => {
