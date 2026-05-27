@@ -1,57 +1,45 @@
-# @spense/voice-input
+# Voice Input — VS Code Extension
 
-VS Code extension for voice-to-text input. Press **Ctrl+Space** to dictate.
+Press **Ctrl+Space** to dictate text into your editor or terminal.
 
-## Publishing to GitHub Packages
+---
 
-### One-time setup (you, the publisher):
+## Install
 
-1. Create a GitHub Personal Access Token with `write:packages` scope
-2. Login to npm with GitHub registry:
-   ```bash
-   npm login --registry=https://npm.pkg.github.com
-   # Username: your-github-username
-   # Password: your-personal-access-token
-   ```
+### 1. Install Sox
 
-3. Publish:
-   ```bash
-   cd vscode-extension
-   npm publish
-   ```
+**Windows:** [Download Sox](https://sourceforge.net/projects/sox/files/sox/) and add to PATH  
+**macOS:** `brew install sox`
 
-### For your team (installing):
+### 2. Configure npm for GitHub Packages
 
-1. Create a `.npmrc` in their home directory (`~/.npmrc`):
-   ```
-   //npm.pkg.github.com/:_authToken=THEIR_GITHUB_TOKEN
-   @spense:registry=https://npm.pkg.github.com
-   ```
-   (Token needs `read:packages` scope)
+Add to `~/.npmrc`:
+```
+//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
+@ritwik-spense:registry=https://npm.pkg.github.com
+```
 
-2. Install:
-   ```bash
-   npx @spense/voice-input
-   ```
+### 3. Install extension
 
-   This builds, packages, and installs the extension into VS Code automatically.
+```bash
+npx @ritwik-spense/voice-input
+```
 
-3. Configure in VS Code Settings (`Ctrl+,`):
-   - `voiceInput.apiKey` → the shared API key
+### 4. Set API key
 
-4. Use: **Ctrl+Space** to start/stop recording.
+VS Code Settings → search `voiceInput` → set **API Key**
 
-## Prerequisites
+---
 
-- `sox` installed: `brew install sox` (Mac) / `sudo apt install sox` (Linux)
-- Node.js 18+
+## Usage
 
-## Settings
+**Ctrl+Space** — start recording  
+**Ctrl+Space** again — stop and insert transcribed text
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `voiceInput.sttUrl` | `http://65.0.42.25:9000/v1/audio/transcriptions` | STT endpoint |
-| `voiceInput.sttModel` | `deepdml/faster-whisper-large-v3-turbo-ct2` | Whisper model |
-| `voiceInput.language` | `en` | Language (`en`, `hi`, `kn`, `ta`, `auto`) |
-| `voiceInput.translateToEnglish` | `true` | Translate to English |
-| `voiceInput.apiKey` | (empty) | Required API key |
+---
+
+## Uninstall
+
+```bash
+code --uninstall-extension spense.voice-input
+```
