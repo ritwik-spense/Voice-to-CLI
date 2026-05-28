@@ -157,6 +157,7 @@ let recProcess: ChildProcess | null = null;
 let monProcess: ChildProcess | null = null;
 let tempFile = "";
 let statusBar: vscode.StatusBarItem;
+let terminalFocused = false;
 const log = vscode.window.createOutputChannel("Voice Input");
 
 export function activate(context: vscode.ExtensionContext) {
@@ -165,8 +166,71 @@ export function activate(context: vscode.ExtensionContext) {
   setIdle();
   statusBar.show();
 
+  vscode.window.onDidChangeActiveTerminal((t) => { if (t) terminalFocused = true; });
+  vscode.window.onDidChangeActiveTextEditor((e) => { if (e) terminalFocused = false; });
+  vscode.window.onDidChangeTextEditorSelection(() => { terminalFocused = false; });
+
   const cmd = vscode.commands.registerCommand("voiceInput.toggle", toggleRecording);
-  context.subscriptions.push(cmd, statusBar);
+  const checkCmd = vscode.commands.registerCommand("voiceInput.checkSetup", checkSetup);
+  context.subscriptions.push(cmd, checkCmd, statusBar);
+}
+
+async function checkSetup() {
+  log.show(true);
+  log.appendLine("=== Voice Input: Setup Check ===");
+
+  // 1. Check sox
+  let soxOk = false;
+  try {
+    const soxCmd = findSoxPath();
+    log.appendLine(`✓ Sox path: ${soxCmd}`);
+    try {
+      const version = execSync(`"${soxCmd}" --version`, { encoding: "utf8", timeout: 5000 }).trim();
+      log.appendLine(`✓ Sox version: ${version}`);
+      soxOk = true;
+    } catch {
+      // sox --version may fail but sox might still work (some builds)
+      soxOk = soxCmd !== "sox" || process.platform !== "win32";
+      log.appendLine(soxOk ? `⚠ Sox found at ${soxCmd} but --version failed (may still work)` : "✗ Sox not found");
+    }
+  } catch (e: any) {
+    log.appendLine(`✗ Sox error: ${e.message}`);
+  }
+
+  // 2. Check API key
+  const config = vscode.workspace.getConfiguration("voiceInput");
+  const apiKey = config.get<string>("apiKey", "") || "sk-c05446ce3a3efde3783b67f5725b73867763f7ad0c9f1737";
+  if (config.get<string>("apiKey", "")) {
+    log.appendLine("✓ API key configured in settings");
+  } else {
+    log.appendLine("⚠ No API key in settings (using built-in fallback)");
+  }
+
+  // 3. Check STT server
+  const sttUrl = config.get<string>("sttUrl", "http://65.0.42.25:9000/v1/audio/transcriptions");
+  try {
+    const parsed = new URL(sttUrl);
+    const baseUrl = `${parsed.protocol}//${parsed.host}`;
+    await new Promise<void>((resolve, reject) => {
+      const req = http.get(baseUrl, { timeout: 5000 }, (res) => {
+        log.appendLine(`✓ STT server reachable (${baseUrl} → HTTP ${res.statusCode})`);
+        res.resume();
+        resolve();
+      });
+      req.on("error", (e) => { reject(e); });
+      req.on("timeout", () => { req.destroy(); reject(new Error("timeout")); });
+    });
+  } catch (e: any) {
+    log.appendLine(`✗ STT server unreachable (${sttUrl}): ${e.message}`);
+  }
+
+  // Summary
+  log.appendLine("=== Check Complete ===");
+  if (soxOk) {
+    vscode.window.showInformationMessage("Voice Input: Setup looks good! Check Output panel for details.");
+  } else {
+    vscode.window.showWarningMessage("Voice Input: Sox not found. Install sox and restart your editor.");
+  }
 }
 
 export function deactivate() {
@@ -436,9 +500,16 @@ function transcribe(
 }
 
 function insertText(text: string) {
+  const editor = vscode.window.activeTextEditor;
   const terminal = vscode.window.activeTerminal;
 
-  if (terminal) {
+  if (terminalFocused && terminal) {
+    terminal.sendText(text, false);
+  } else if (editor && editor.document.uri.scheme === "file") {
+    editor.edit((editBuilder) => {
+      editBuilder.insert(editor.selection.active, text);
+    });
+  } else if (terminal) {
     terminal.sendText(text, false);
   } else {
     vscode.env.clipboard.writeText(text);
