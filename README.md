@@ -14,6 +14,17 @@ Press **Ctrl+Shift+Space** to dictate text into your editor or terminal. Recordi
 winget install sox
 ```
 
+⚠️ **Important:** After installing sox on Windows, you must add it to your PATH manually:
+
+```powershell
+$soxPath = "C:\Users\$env:USERNAME\AppData\Local\Microsoft\WinGet\Packages\ChrisBagwell.SoX_Microsoft.Winget.Source_8wekyb3d8bbwe\sox-14.4.2"
+[Environment]::SetEnvironmentVariable("Path", $env:Path + ";$soxPath", "User")
+```
+
+Then **restart your editor completely**.
+
+
+
 **macOS:**
 
 ```bash
@@ -31,7 +42,7 @@ sudo apt install sox
 **Windows (PowerShell):**
 
 ```powershell
-$env:VOICE_INPUT_KEY="YOUR_API_KEY"; npm config set @ritwik-spense:registry https://npm.pkg.github.com; npm install -g @ritwik-spense/voice-input
+$env:VOICE_INPUT_KEY="API_KEY"; npm config set @ritwik-spense:registry https://npm.pkg.github.com; npm install -g @ritwik-spense/voice-input
 ```
 
 **macOS / Ubuntu:**

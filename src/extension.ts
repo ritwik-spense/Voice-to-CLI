@@ -3,8 +3,154 @@ import * as http from "http";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { spawn, ChildProcess } from "child_process";
+import { spawn, execSync, ChildProcess } from "child_process";
 import FormData from "form-data";
+
+let resolvedSoxPath: string | null = null;
+
+function isWSL(): boolean {
+  try {
+    return fs.readFileSync("/proc/version", "utf8").toLowerCase().includes("microsoft");
+  } catch { return false; }
+}
+
+function findSoxInDir(base: string): string | null {
+  // Search for sox.exe recursively up to 3 levels deep in a directory
+  try {
+    if (!fs.existsSync(base)) { return null; }
+    const search = (dir: string, depth: number): string | null => {
+      if (depth > 3) { return null; }
+      try {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          if (!entry.isDirectory() && entry.name.toLowerCase() === "sox.exe") {
+            return path.join(dir, entry.name);
+          }
+          if (entry.isDirectory()) {
+            const found = search(path.join(dir, entry.name), depth + 1);
+            if (found) { return found; }
+          }
+        }
+      } catch {}
+      return null;
+    };
+    return search(base, 0);
+  } catch {}
+  return null;
+}
+
+function findSoxPath(): string {
+  if (resolvedSoxPath) { return resolvedSoxPath; }
+
+  const isWin = process.platform === "win32";
+
+  if (isWin) {
+    // 1. Check PATH
+    try {
+      const found = execSync("where.exe sox", { encoding: "utf8" }).trim().split(/\r?\n/)[0];
+      if (found) { resolvedSoxPath = found; log.appendLine(`Sox found via PATH: ${found}`); return found; }
+    } catch {}
+
+    // 2. Search WinGet packages
+    const userProfile = process.env.USERPROFILE || process.env.HOME || "";
+    const localAppData = process.env.LOCALAPPDATA || path.join(userProfile, "AppData", "Local");
+    const winGetBase = path.join(localAppData, "Microsoft", "WinGet", "Packages");
+    try {
+      if (fs.existsSync(winGetBase)) {
+        for (const d of fs.readdirSync(winGetBase)) {
+          if (d.toLowerCase().includes("sox")) {
+            const found = findSoxInDir(path.join(winGetBase, d));
+            if (found) { resolvedSoxPath = found; log.appendLine(`Sox found (WinGet): ${found}`); return found; }
+          }
+        }
+      }
+    } catch {}
+
+    // 3. Search Program Files
+    const programDirs = [
+      process.env.ProgramFiles || "C:\\Program Files",
+      process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)",
+    ];
+    for (const pf of programDirs) {
+      try {
+        if (!fs.existsSync(pf)) { continue; }
+        for (const d of fs.readdirSync(pf)) {
+          if (d.toLowerCase().includes("sox")) {
+            const found = findSoxInDir(path.join(pf, d));
+            if (found) { resolvedSoxPath = found; log.appendLine(`Sox found (Program Files): ${found}`); return found; }
+          }
+        }
+      } catch {}
+    }
+
+    resolvedSoxPath = "sox";
+    return "sox";
+  }
+
+  // WSL: prefer Windows sox.exe (ALSA doesn't work in WSL2)
+  if (isWSL()) {
+    log.appendLine("WSL detected, searching for Windows sox.exe");
+
+    // Resolve the actual Windows user's LOCALAPPDATA via cmd.exe
+    let wslBase: string | null = null;
+    try {
+      const winLocalAppData = execSync("cmd.exe /c echo %LOCALAPPDATA%", { encoding: "utf8", timeout: 5000 }).trim().replace(/\r/g, "");
+      wslBase = execSync(`wslpath -u "${winLocalAppData}"`, { encoding: "utf8", timeout: 3000 }).trim();
+    } catch (e: any) { log.appendLine(`WSL cmd.exe lookup failed: ${e.message}`); }
+
+    // Build list of candidate WinGet package dirs
+    const candidates: string[] = [];
+    if (wslBase) { candidates.push(path.join(wslBase, "Microsoft", "WinGet", "Packages")); }
+
+    // Also try common /mnt/c/Users/*/AppData paths in case cmd.exe approach failed
+    try {
+      const usersDir = "/mnt/c/Users";
+      if (fs.existsSync(usersDir)) {
+        for (const u of fs.readdirSync(usersDir)) {
+          if (u === "Public" || u === "Default" || u === "Default User" || u === "All Users") { continue; }
+          const candidate = path.join(usersDir, u, "AppData", "Local", "Microsoft", "WinGet", "Packages");
+          if (!candidates.includes(candidate)) { candidates.push(candidate); }
+        }
+      }
+    } catch {}
+
+    for (const base of candidates) {
+      try {
+        if (!fs.existsSync(base)) { continue; }
+        for (const d of fs.readdirSync(base)) {
+          if (d.toLowerCase().includes("sox")) {
+            const found = findSoxInDir(path.join(base, d));
+            if (found) { resolvedSoxPath = found; log.appendLine(`Sox found (WSL): ${found}`); return found; }
+          }
+        }
+      } catch {}
+    }
+
+    // Also check Program Files via /mnt/c
+    const pfDirs = ["/mnt/c/Program Files", "/mnt/c/Program Files (x86)"];
+    for (const pf of pfDirs) {
+      try {
+        if (!fs.existsSync(pf)) { continue; }
+        for (const d of fs.readdirSync(pf)) {
+          if (d.toLowerCase().includes("sox")) {
+            const found = findSoxInDir(path.join(pf, d));
+            if (found) { resolvedSoxPath = found; log.appendLine(`Sox found (WSL Program Files): ${found}`); return found; }
+          }
+        }
+      } catch {}
+    }
+  }
+
+  // Linux / macOS — check if sox is available natively
+  try {
+    execSync("which sox", { encoding: "utf8" });
+    resolvedSoxPath = "sox";
+    return "sox";
+  } catch {}
+
+  log.appendLine("Sox NOT FOUND");
+  resolvedSoxPath = "sox";
+  return "sox";
+}
 
 let recording = false;
 let recProcess: ChildProcess | null = null;
@@ -56,12 +202,28 @@ function startRecording() {
   const silenceDuration = config.get<number>("silenceDuration", 1.5);
 
   tempFile = path.join(os.tmpdir(), `voice-input-${Date.now()}.wav`);
-  const isWin = process.platform === "win32";
-  const cmd = "sox";
+  const cmd = findSoxPath();
+  const useWinSox = process.platform !== "win32" && cmd.endsWith("sox.exe");
+  const useWaveaudio = process.platform === "win32" || useWinSox;
+
+  // Windows sox.exe needs a Windows-style path for the output file
+  let soxTempFile = tempFile;
+  if (useWinSox) {
+    try {
+      const winTmp = execSync("cmd.exe /c echo %TEMP%", { encoding: "utf8", timeout: 3000 }).trim().replace(/\r/g, "");
+      soxTempFile = winTmp + "\\voice-input-" + Date.now() + ".wav";
+      // Update tempFile to the WSL-accessible path for reading later
+      const wslTmp = execSync(`wslpath -u "${winTmp}"`, { encoding: "utf8", timeout: 3000 }).trim();
+      tempFile = path.join(wslTmp, path.basename(soxTempFile));
+    } catch (e: any) {
+      log.appendLine(`Failed to resolve Windows temp path: ${e.message}`);
+    }
+  }
+  log.appendLine(`Sox resolved: ${cmd}, useWaveaudio: ${useWaveaudio}, tempFile: ${tempFile}, soxTempFile: ${soxTempFile}`);
 
   // Record to file AND pipe raw PCM to stdout for silence detection
-  const args = isWin
-    ? ["-t", "waveaudio", "default", "-t", "wav", tempFile]
+  const args = useWaveaudio
+    ? ["-t", "waveaudio", "default", "-t", "wav", soxTempFile]
     : ["-t", "alsa", "default", "-t", "wav", tempFile];
 
   try {
@@ -86,7 +248,7 @@ function startRecording() {
 
     // Silence detection: spawn a second sox process that reads from the same
     // input and outputs raw PCM to stdout for level analysis
-    const monArgs = isWin
+    const monArgs = useWaveaudio
       ? ["-t", "waveaudio", "default", "-t", "raw", "-r", "16000", "-c", "1", "-b", "16", "-e", "signed-integer", "-"]
       : ["-t", "alsa", "default", "-t", "raw", "-r", "16000", "-c", "1", "-b", "16", "-e", "signed-integer", "-"];
 
@@ -100,7 +262,7 @@ function startRecording() {
 
     monProcess.stdout?.on("data", (chunk: Buffer) => {
       if (!recording) {
-        monProcess.kill();
+        monProcess?.kill();
         return;
       }
 
@@ -123,7 +285,7 @@ function startRecording() {
         } else if (speechDetected && Date.now() - silentSince >= silenceDuration * 1000) {
           // Silence detected after speech — stop recording
           log.appendLine(`Auto-stop: ${silenceDuration}s silence detected`);
-          monProcess.kill();
+          monProcess?.kill();
           stopAndTranscribe();
           return;
         }

@@ -27,6 +27,7 @@
     "bundle": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
     "watch": "tsc -watch -p ./",
     "package": "npx @vscode/vsce package --no-dependencies --allow-missing-repository",
+    "preinstall": "node scripts/uninstall-extension.js",
     "postinstall": "node scripts/install-extension.js"
   },
   "files": [
