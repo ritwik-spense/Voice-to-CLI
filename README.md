@@ -44,9 +44,7 @@ code --version
 **Windows (PowerShell):**
 
 ```powershell
-echo "//npm.pkg.github.com/:_authToken=YOUR_TOKEN_HERE" >> "$env:USERPROFILE\.npmrc"
-npm config set @ritwik-spense:registry https://npm.pkg.github.com
-npm install -g @ritwik-spense/voice-input
+npm config set @ritwik-spense:registry https://npm.pkg.github.com --location=user; npm config set //npm.pkg.github.com/:_authToken=YOUR_TOKEN_HERE --location=user; npm install -g @ritwik-spense/voice-input
 ```
 
 **macOS / Ubuntu:**
