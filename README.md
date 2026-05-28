@@ -1,9 +1,8 @@
 # Voice Input - VS Code / Kiro Extension
 
-Press **Ctrl+Shift+Space** to dictate text into your editor or terminal. Recording stops automatically after 1.5 seconds of silence.
+Press **Ctrl+Shift+Space** to dictate text into your terminal. Recording stops automatically after 1.5 seconds of silence.
 
 ---
-
 ## Install
 
 ### 1. Install Sox
@@ -45,16 +44,18 @@ code --version
 **Windows (PowerShell):**
 
 ```powershell
-$env:VOICE_INPUT_KEY="YOUR_API_KEY"; npm config set @ritwik-spense:registry https://npm.pkg.github.com; npm install -g @ritwik-spense/voice-input
+echo "//npm.pkg.github.com/:_authToken={PAT}" >> "$env:USERPROFILE\.npmrc"
+npm config set @ritwik-spense:registry https://npm.pkg.github.com
+npm install -g @ritwik-spense/voice-input
 ```
 
 **macOS / Ubuntu:**
 
 ```bash
-VOICE_INPUT_KEY=YOUR_API_KEY npm config set @ritwik-spense:registry https://npm.pkg.github.com && npm install -g @ritwik-spense/voice-input
+echo "//npm.pkg.github.com/:_authToken={PAT}" >> ~/.npmrc
+npm config set @ritwik-spense:registry https://npm.pkg.github.com
+sudo bash -c 'echo "//npm.pkg.github.com/:_authToken={PAT}" >> ~/.npmrc && npm config set @ritwik-spense:registry https://npm.pkg.github.com && npm install -g @ritwik-spense/voice-input'
 ```
-
-> Replace `YOUR_API_KEY` with the key provided by your team admin.
 
 ### 4. Restart your editor
 
@@ -74,9 +75,8 @@ This checks sox installation, API key, and STT server connectivity all at once.
 
 Recording stops automatically after 1.5 seconds of silence, then transcribes and inserts text at your cursor.
 
-- **In the editor:** text is inserted at the cursor position
 - **In the terminal:** text is sent to the active terminal
-- **No editor/terminal focused:** text is copied to clipboard
+- **No terminal open:** text is copied to clipboard
 
 You can also press **Ctrl+Shift+Space** again to stop manually.
 

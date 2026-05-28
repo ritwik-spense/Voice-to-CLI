@@ -158,6 +158,7 @@ let monProcess: ChildProcess | null = null;
 let tempFile = "";
 let statusBar: vscode.StatusBarItem;
 let terminalFocused = false;
+let recordingTerminal: vscode.Terminal | undefined;
 const log = vscode.window.createOutputChannel("Voice Input");
 
 export function activate(context: vscode.ExtensionContext) {
@@ -170,9 +171,13 @@ export function activate(context: vscode.ExtensionContext) {
   vscode.window.onDidChangeActiveTextEditor((e) => { if (e) terminalFocused = false; });
   vscode.window.onDidChangeTextEditorSelection(() => { terminalFocused = false; });
 
-  const cmd = vscode.commands.registerCommand("voiceInput.toggle", toggleRecording);
+  const cmd = vscode.commands.registerCommand("voiceInput.toggle", () => toggleRecording());
+  const termCmd = vscode.commands.registerCommand("voiceInput.toggleTerminal", () => {
+    terminalFocused = true;
+    toggleRecording();
+  });
   const checkCmd = vscode.commands.registerCommand("voiceInput.checkSetup", checkSetup);
-  context.subscriptions.push(cmd, checkCmd, statusBar);
+  context.subscriptions.push(cmd, termCmd, checkCmd, statusBar);
 }
 
 async function checkSetup() {
@@ -261,6 +266,7 @@ async function toggleRecording() {
 function startRecording() {
   recording = true;
   setRecording();
+  recordingTerminal = vscode.window.activeTerminal;
 
   const config = vscode.workspace.getConfiguration("voiceInput");
   const silenceDuration = config.get<number>("silenceDuration", 1.5);
@@ -286,9 +292,12 @@ function startRecording() {
   log.appendLine(`Sox resolved: ${cmd}, useWaveaudio: ${useWaveaudio}, tempFile: ${tempFile}, soxTempFile: ${soxTempFile}`);
 
   // Record to file AND pipe raw PCM to stdout for silence detection
-  const args = useWaveaudio
-    ? ["-t", "waveaudio", "default", "-t", "wav", soxTempFile]
-    : ["-t", "alsa", "default", "-t", "wav", tempFile];
+  const inputArgs = useWaveaudio
+    ? ["-t", "waveaudio", "default"]
+    : process.platform === "darwin"
+      ? ["-t", "coreaudio", "default"]
+      : ["-t", "alsa", "default"];
+  const args = [...inputArgs, "-t", "wav", useWaveaudio ? soxTempFile : tempFile];
 
   try {
     recProcess = spawn(cmd, args, { stdio: ["ignore", "ignore", "ignore"] });
@@ -314,7 +323,9 @@ function startRecording() {
     // input and outputs raw PCM to stdout for level analysis
     const monArgs = useWaveaudio
       ? ["-t", "waveaudio", "default", "-t", "raw", "-r", "16000", "-c", "1", "-b", "16", "-e", "signed-integer", "-"]
-      : ["-t", "alsa", "default", "-t", "raw", "-r", "16000", "-c", "1", "-b", "16", "-e", "signed-integer", "-"];
+      : process.platform === "darwin"
+        ? ["-t", "coreaudio", "default", "-t", "raw", "-r", "16000", "-c", "1", "-b", "16", "-e", "signed-integer", "-"]
+        : ["-t", "alsa", "default", "-t", "raw", "-r", "16000", "-c", "1", "-b", "16", "-e", "signed-integer", "-"];
 
     monProcess = spawn(cmd, monArgs, { stdio: ["ignore", "pipe", "ignore"] });
 
@@ -500,16 +511,9 @@ function transcribe(
 }
 
 function insertText(text: string) {
-  const editor = vscode.window.activeTextEditor;
-  const terminal = vscode.window.activeTerminal;
+  const terminal = recordingTerminal || vscode.window.activeTerminal;
 
-  if (terminalFocused && terminal) {
-    terminal.sendText(text, false);
-  } else if (editor && editor.document.uri.scheme === "file") {
-    editor.edit((editBuilder) => {
-      editBuilder.insert(editor.selection.active, text);
-    });
-  } else if (terminal) {
+  if (terminal) {
     terminal.sendText(text, false);
   } else {
     vscode.env.clipboard.writeText(text);

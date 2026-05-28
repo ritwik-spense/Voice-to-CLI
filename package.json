@@ -2,7 +2,7 @@
   "name": "@ritwik-spense/voice-input",
   "displayName": "Voice Input",
   "description": "Press Ctrl+Space to dictate text into your editor via STT",
-  "version": "0.1.13",
+  "version": "0.1.19",
   "publisher": "spense",
   "repository": {
     "type": "git",
@@ -26,7 +26,7 @@
     "compile": "tsc -p ./",
     "bundle": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
     "watch": "tsc -watch -p ./",
-    "package": "node -e \"const f='package.json',j=require('./'+f);j.name='voice-input';require('fs').writeFileSync(f,JSON.stringify(j,null,2))\" && npx @vscode/vsce package --no-dependencies --allow-missing-repository && node -e \"const f='package.json',j=require('./'+f);j.name='@ritwik-spense/voice-input';require('fs').writeFileSync(f,JSON.stringify(j,null,2))\"",
+    "package": "node -e \"const f='package.json',j=require('./'+f);j.name='voice-input';require('fs').writeFileSync(f,JSON.stringify(j,null,2))\" && npx @vscode/vsce package --no-dependencies --allow-missing-repository --allow-package-all-secrets && node -e \"const f='package.json',j=require('./'+f);j.name='@ritwik-spense/voice-input';require('fs').writeFileSync(f,JSON.stringify(j,null,2))\"",
     "preinstall": "node scripts/uninstall-extension.js",
     "postinstall": "node scripts/install-extension.js"
   },
@@ -44,15 +44,26 @@
         "title": "Voice Input: Toggle Recording"
       },
       {
+        "command": "voiceInput.toggleTerminal",
+        "title": "Voice Input: Toggle Recording (Terminal)"
+      },
+      {
         "command": "voiceInput.checkSetup",
         "title": "Voice Input: Check Setup"
       }
     ],
     "keybindings": [
       {
+        "command": "voiceInput.toggleTerminal",
+        "key": "ctrl+shift+space",
+        "mac": "ctrl+shift+space",
+        "when": "terminalFocus"
+      },
+      {
         "command": "voiceInput.toggle",
         "key": "ctrl+shift+space",
-        "mac": "ctrl+shift+space"
+        "mac": "ctrl+shift+space",
+        "when": "!terminalFocus"
       }
     ],
     "configuration": {
