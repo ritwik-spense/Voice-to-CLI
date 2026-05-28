@@ -22,8 +22,9 @@
   ],
   "main": "./out/extension.js",
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run bundle",
     "compile": "tsc -p ./",
+    "bundle": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
     "watch": "tsc -watch -p ./",
     "package": "npx @vscode/vsce package --no-dependencies --allow-missing-repository",
     "postinstall": "node scripts/install-extension.js"
@@ -31,6 +32,7 @@
   "files": [
     "scripts/install-extension.js",
     "voice-input.vsix",
+    "out/**",
     "README.md"
   ],
   "contributes": {
@@ -43,9 +45,9 @@
     "keybindings": [
       {
         "command": "voiceInput.toggle",
-        "key": "ctrl+space",
-        "mac": "ctrl+space",
-        "when": "terminalFocus || editorTextFocus"
+        "key": "ctrl+shift+space",
+        "mac": "ctrl+shift+space",
+        "when": "terminalFocus"
       }
     ],
     "configuration": {
@@ -75,6 +77,11 @@
           "type": "string",
           "default": "",
           "description": "API key for authentication (required). Get this from your team admin."
+        },
+        "voiceInput.silenceDuration": {
+          "type": "number",
+          "default": 1.5,
+          "description": "Seconds of silence before auto-stopping recording"
         }
       }
     }
@@ -82,6 +89,7 @@
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.85.0",
+    "esbuild": "^0.28.0",
     "typescript": "^5.3.3"
   },
   "dependencies": {

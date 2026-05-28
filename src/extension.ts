@@ -1,12 +1,17 @@
 import * as vscode from "vscode";
 import * as http from "http";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 import { spawn, ChildProcess } from "child_process";
 import FormData from "form-data";
 
 let recording = false;
 let recProcess: ChildProcess | null = null;
-let audioChunks: Buffer[] = [];
+let monProcess: ChildProcess | null = null;
+let tempFile = "";
 let statusBar: vscode.StatusBarItem;
+const log = vscode.window.createOutputChannel("Voice Input");
 
 export function activate(context: vscode.ExtensionContext) {
   statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
@@ -19,18 +24,19 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() {
-  stopRecording();
+  if (recProcess) { recProcess.kill("SIGTERM"); recProcess = null; }
+  if (monProcess) { monProcess.kill("SIGTERM"); monProcess = null; }
 }
 
 function setIdle() {
   statusBar.text = "$(unmute) Voice";
-  statusBar.tooltip = "Click or Ctrl+Space to start recording";
+  statusBar.tooltip = "Click or Ctrl+Shift+Space to toggle recording";
   statusBar.backgroundColor = undefined;
 }
 
 function setRecording() {
   statusBar.text = "$(pulse) Recording...";
-  statusBar.tooltip = "Click or Ctrl+Space to stop";
+  statusBar.tooltip = "Click or Ctrl+Shift+Space to stop";
   statusBar.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground");
 }
 
@@ -43,22 +49,23 @@ async function toggleRecording() {
 }
 
 function startRecording() {
-  audioChunks = [];
   recording = true;
   setRecording();
 
+  const config = vscode.workspace.getConfiguration("voiceInput");
+  const silenceDuration = config.get<number>("silenceDuration", 1.5);
+
+  tempFile = path.join(os.tmpdir(), `voice-input-${Date.now()}.wav`);
   const isWin = process.platform === "win32";
-  const cmd = isWin ? "sox" : "rec";
+  const cmd = "sox";
+
+  // Record to file AND pipe raw PCM to stdout for silence detection
   const args = isWin
-    ? ["-d", "-t", "wav", "-r", "16000", "-c", "1", "-b", "16", "-"]
-    : ["-t", "wav", "-r", "16000", "-c", "1", "-b", "16", "-", "trim", "0"];
+    ? ["-t", "waveaudio", "default", "-t", "wav", tempFile]
+    : ["-t", "alsa", "default", "-t", "wav", tempFile];
 
   try {
-    recProcess = spawn(cmd, args, { stdio: ["ignore", "pipe", "ignore"] });
-
-    recProcess.stdout?.on("data", (chunk: Buffer) => {
-      audioChunks.push(chunk);
-    });
+    recProcess = spawn(cmd, args, { stdio: ["ignore", "ignore", "ignore"] });
 
     recProcess.on("error", (err) => {
       vscode.window.showErrorMessage(
@@ -70,7 +77,61 @@ function startRecording() {
 
     recProcess.on("close", () => {
       recProcess = null;
+      // Sox exited on its own — trigger transcription if still in recording state
+      if (recording) {
+        recording = false;
+        stopAndTranscribe();
+      }
     });
+
+    // Silence detection: spawn a second sox process that reads from the same
+    // input and outputs raw PCM to stdout for level analysis
+    const monArgs = isWin
+      ? ["-t", "waveaudio", "default", "-t", "raw", "-r", "16000", "-c", "1", "-b", "16", "-e", "signed-integer", "-"]
+      : ["-t", "alsa", "default", "-t", "raw", "-r", "16000", "-c", "1", "-b", "16", "-e", "signed-integer", "-"];
+
+    monProcess = spawn(cmd, monArgs, { stdio: ["ignore", "pipe", "ignore"] });
+
+    let speechDetected = false;
+    let silentSince = Date.now();
+    const THRESHOLD = 500; // amplitude threshold for "silence"
+    const CHECK_BYTES = 3200; // 100ms of 16kHz 16-bit mono
+    let buf = Buffer.alloc(0);
+
+    monProcess.stdout?.on("data", (chunk: Buffer) => {
+      if (!recording) {
+        monProcess.kill();
+        return;
+      }
+
+      buf = Buffer.concat([buf, chunk]);
+      while (buf.length >= CHECK_BYTES) {
+        const block = buf.subarray(0, CHECK_BYTES);
+        buf = buf.subarray(CHECK_BYTES);
+
+        // Calculate RMS amplitude
+        let sum = 0;
+        for (let i = 0; i < block.length; i += 2) {
+          const sample = block.readInt16LE(i);
+          sum += sample * sample;
+        }
+        const rms = Math.sqrt(sum / (block.length / 2));
+
+        if (rms > THRESHOLD) {
+          speechDetected = true;
+          silentSince = Date.now();
+        } else if (speechDetected && Date.now() - silentSince >= silenceDuration * 1000) {
+          // Silence detected after speech — stop recording
+          log.appendLine(`Auto-stop: ${silenceDuration}s silence detected`);
+          monProcess.kill();
+          stopAndTranscribe();
+          return;
+        }
+      }
+    });
+
+    monProcess.on("error", () => {}); // ignore monitor errors
+
   } catch (e: any) {
     vscode.window.showErrorMessage(`Voice Input: ${e.message}`);
     recording = false;
@@ -78,26 +139,49 @@ function startRecording() {
   }
 }
 
-function stopRecording(): Buffer {
+function stopRecording(): Promise<Buffer> {
   recording = false;
   setIdle();
 
-  if (recProcess) {
-    recProcess.kill("SIGTERM");
-    recProcess = null;
+  if (monProcess) {
+    monProcess.kill("SIGTERM");
+    monProcess = null;
   }
 
-  return Buffer.concat(audioChunks);
+  return new Promise((resolve) => {
+    if (!recProcess) {
+      setTimeout(() => resolve(readTempFile()), 200);
+      return;
+    }
+    const proc = recProcess;
+    recProcess = null;
+    proc.on("close", () => {
+      setTimeout(() => resolve(readTempFile()), 200);
+    });
+    proc.kill("SIGTERM");
+  });
+}
+
+function readTempFile(): Buffer {
+  try {
+    if (tempFile && fs.existsSync(tempFile)) {
+      const buf = fs.readFileSync(tempFile);
+      fs.unlinkSync(tempFile);
+      return buf;
+    }
+  } catch {}
+  return Buffer.alloc(0);
 }
 
 async function stopAndTranscribe() {
-  const wavBuffer = stopRecording();
+  const wavBuffer = await stopRecording();
 
   if (wavBuffer.length < 1000) {
     vscode.window.showWarningMessage("Voice Input: Recording too short");
     return;
   }
 
+  log.appendLine(`Recording stopped. Buffer size: ${wavBuffer.length} bytes`);
   statusBar.text = "$(sync~spin) Transcribing...";
 
   const config = vscode.workspace.getConfiguration("voiceInput");
@@ -117,12 +201,14 @@ async function stopAndTranscribe() {
 
   try {
     const text = await transcribe(wavBuffer, sttUrl, sttModel, language, apiKey, translateToEnglish);
+    log.appendLine(`Transcription result: "${text}"`);
     if (text) {
       insertText(text);
     } else {
       vscode.window.showWarningMessage("Voice Input: No speech detected");
     }
   } catch (e: any) {
+    log.appendLine(`Transcription error: ${e.message}`);
     vscode.window.showErrorMessage(`Voice Input: ${e.message}`);
   } finally {
     setIdle();
@@ -172,7 +258,7 @@ function transcribe(
             reject(new Error("Invalid response from STT server"));
           }
         } else {
-          reject(new Error(`STT server returned ${res.statusCode}`));
+          reject(new Error(`STT server returned ${res.statusCode}: ${body}`));
         }
       });
     });
@@ -189,19 +275,8 @@ function transcribe(
 
 function insertText(text: string) {
   const terminal = vscode.window.activeTerminal;
-  const editor = vscode.window.activeTextEditor;
 
-  if (terminal && !editor?.document.uri.scheme) {
-    terminal.sendText(text, false);
-  } else if (editor) {
-    editor.edit((editBuilder) => {
-      if (editor.selection.isEmpty) {
-        editBuilder.insert(editor.selection.active, text);
-      } else {
-        editBuilder.replace(editor.selection, text);
-      }
-    });
-  } else if (terminal) {
+  if (terminal) {
     terminal.sendText(text, false);
   } else {
     vscode.env.clipboard.writeText(text);
