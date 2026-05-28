@@ -44,7 +44,7 @@ code --version
 **Windows (PowerShell):**
 
 ```powershell
-echo "//npm.pkg.github.com/:_authToken={PAT}" >> "$env:USERPROFILE\.npmrc"
+echo "//npm.pkg.github.com/:_authToken=YOUR_TOKEN_HERE" >> "$env:USERPROFILE\.npmrc"
 npm config set @ritwik-spense:registry https://npm.pkg.github.com
 npm install -g @ritwik-spense/voice-input
 ```
@@ -52,9 +52,9 @@ npm install -g @ritwik-spense/voice-input
 **macOS / Ubuntu:**
 
 ```bash
-echo "//npm.pkg.github.com/:_authToken={PAT}" >> ~/.npmrc
+echo "//npm.pkg.github.com/:_authToken=YOUR_TOKEN_HERE" >> ~/.npmrc
 npm config set @ritwik-spense:registry https://npm.pkg.github.com
-sudo bash -c 'echo "//npm.pkg.github.com/:_authToken={PAT}" >> ~/.npmrc && npm config set @ritwik-spense:registry https://npm.pkg.github.com && npm install -g @ritwik-spense/voice-input'
+sudo bash -c 'echo "//npm.pkg.github.com/:_authToken=YOUR_TOKEN_HERE" >> ~/.npmrc && npm config set @ritwik-spense:registry https://npm.pkg.github.com && npm install -g @ritwik-spense/voice-input'
 ```
 
 ### 4. Restart your editor
