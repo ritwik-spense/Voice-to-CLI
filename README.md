@@ -116,6 +116,29 @@ Run **"Voice Input: Check Setup"** from the Command Palette first — it diagnos
 
 ---
 
+## Republishing (for developers)
+
+After making changes to the extension source:
+
+```bash
+# 1. Bump version
+npm version patch --no-git-tag-version
+
+# 2. Bundle + package VSIX
+npm run package
+
+# 3. Publish to GitHub Packages
+npm publish
+```
+
+Users update with:
+
+```bash
+npm install -g @ritwik-spense/voice-input@latest
+```
+
+---
+
 ## Uninstall
 
 ```bash

@@ -2,7 +2,7 @@
   "name": "@ritwik-spense/voice-input",
   "displayName": "Voice Input",
   "description": "Press Ctrl+Space to dictate text into your editor via STT",
-  "version": "0.1.19",
+  "version": "0.1.21",
   "publisher": "spense",
   "repository": {
     "type": "git",
@@ -71,7 +71,7 @@
       "properties": {
         "voiceInput.sttUrl": {
           "type": "string",
-          "default": "http://65.0.42.25:9000/v1/audio/transcriptions",
+          "default": "",
           "description": "STT server endpoint URL"
         },
         "voiceInput.sttModel": {

@@ -212,7 +212,7 @@ async function checkSetup() {
   }
 
   // 3. Check STT server
-  const sttUrl = config.get<string>("sttUrl", "http://65.0.42.25:9000/v1/audio/transcriptions");
+  const sttUrl = config.get<string>("sttUrl", "");
   try {
     const parsed = new URL(sttUrl);
     const baseUrl = `${parsed.protocol}//${parsed.host}`;
@@ -422,7 +422,7 @@ async function stopAndTranscribe() {
   statusBar.text = "$(sync~spin) Transcribing...";
 
   const config = vscode.workspace.getConfiguration("voiceInput");
-  const sttUrl = config.get<string>("sttUrl", "http://65.0.42.25:9000/v1/audio/transcriptions");
+  const sttUrl = config.get<string>("sttUrl", "");
   const sttModel = config.get<string>("sttModel", "deepdml/faster-whisper-large-v3-turbo-ct2");
   const language = config.get<string>("language", "en");
   const translateToEnglish = config.get<boolean>("translateToEnglish", true);
